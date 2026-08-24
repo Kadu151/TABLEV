@@ -14,6 +14,9 @@ const typeLabel = {
   numero: 'Número',
 };
 
+const filtrosSelecionados = new Map();
+let menuFiltroAberto = null;
+
 function renderColumnList() {
   const list = document.getElementById('colList');
   list.innerHTML = '';
@@ -31,7 +34,9 @@ function renderColumnList() {
           style="background:${COLORS[i % COLORS.length]}"
         ></span>
 
-        <span class="font-medium truncate">${col.name}</span>
+        <span class="font-medium truncate">
+          ${col.name}
+        </span>
 
         <span
           class="mono text-xs shrink-0"
@@ -63,75 +68,59 @@ function renderColumnList() {
     list.appendChild(chip);
   });
 
-  list.querySelectorAll('.remove-col').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      columns.splice(Number(btn.dataset.i), 1);
-      renderColumnList();
-    });
-  });
-}
+  list
+    .querySelectorAll('.remove-col')
+    .forEach((btn) => {
+      btn.addEventListener('click', () => {
+        columns.splice(
+          Number(btn.dataset.i),
+          1
+        );
 
-/*
-|--------------------------------------------------------------------------
-| REGRAS DE EXTRAÇÃO
-|--------------------------------------------------------------------------
-|
-| Cada campo possui várias regras porque DANFE e NFS-e municipais
-| apresentam os dados em estruturas diferentes.
-|
-*/
+        filtrosSelecionados.clear();
+        renderColumnList();
+        renderTable();
+      });
+    });
+}
 
 const ANCORAS = {
   'Número da NF': [
-    // DANFE tradicional: "DANFE N. 000360216"
     /DANFE[\s\S]*?N[º°.]\s*0*(\d{4,9})/i,
-
-    // DANFE tradicional: "DANFE NF-e 000360216"
     /DANFE[\s\S]*?NF-?e\.?\s*0*(\d{4,9})/i,
-
-    // NFS-e municipal: "Número / Série 11548 NFe"
     /N[ÚU]MERO\s*\/\s*S[ÉE]RIE\s+0*(\d{3,12})\s+NF-?E/i,
-
-    // Cabeçalho ou rodapé: "11548/NFe"
     /\b0*(\d{3,12})\s*\/\s*NF-?E\b/i,
   ],
 
   Cliente: [
-    // DANFE tradicional
     /NOME\s*\/?\s*RAZ[ÃA]O\s*SOCIAL\s+([A-ZÀ-Ú0-9.,&\-\s]+?)\s+CNPJ/i,
-
-    // NFS-e municipal: procura especificamente o tomador
     /TOMADOR\s+DE\s+SERVI[ÇC]OS[\s\S]{0,250}?NOME\s*\/?\s*RAZ[ÃA]O\s*SOCIAL\s*:?\s*([A-ZÀ-Ú0-9.,&()'\-\s]+?)\s+CPF\s*\/?\s*CNPJ/i,
   ],
 
   'Data de Emissão': [
-    // DANFE tradicional
     /DATA\s*DE\s*EMISS[ÃA]O\s*(\d{2}\/\d{2}\/\d{4})/i,
-
-    // NFS-e com data e horário
     /\bEMISS[ÃA]O\s+(\d{2}\/\d{2}\/\d{4})(?:\s+\d{2}:\d{2}(?::\d{2})?)?/i,
   ],
 
   Valor: [
-    // DANFE tradicional
     /(?:VALOR\s*)?TOTAL\s*DA\s*NOTA\s*(?:R\$)?\s*([\d.,]+)/i,
-
-    // NFS-e: "Valor Total da Nota (R$)"
     /VALOR\s*TOTAL\s*DA\s*NOTA\s*\(\s*R\$\s*\)[\s\S]{0,350}?\b(\d{1,3}(?:\.\d{3})*,\d{2})\b/i,
   ],
 };
 
-/*
-|--------------------------------------------------------------------------
-| NORMALIZAÇÃO
-|--------------------------------------------------------------------------
-*/
-
 function normalizarTextoDocumento(texto) {
-  return texto
+  return String(texto || '')
     .normalize('NFC')
     .replace(/[\u00A0\t\r\n]+/g, ' ')
     .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function normalizarFiltro(valor) {
+  return String(valor ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
     .trim();
 }
 
@@ -147,141 +136,733 @@ function tentarAncoras(texto, listaRegex) {
   return null;
 }
 
-/*
-|--------------------------------------------------------------------------
-| TABELA E COLUNAS
-|--------------------------------------------------------------------------
-*/
-
 function renderTable() {
-  const headRow = document.getElementById('headRow');
-  const table = document.getElementById('previewTable');
-  const emptyState = document.getElementById('emptyState');
+  const headRow =
+    document.getElementById('headRow');
+
+  const table =
+    document.getElementById('previewTable');
+
+  const emptyState =
+    document.getElementById('emptyState');
 
   headRow.innerHTML = '';
 
-  columns.forEach((col, i) => {
+  columns.forEach((coluna, indice) => {
     const th = document.createElement('th');
 
     th.className =
       'text-left px-4 py-3 mono text-xs font-semibold uppercase tracking-wide';
 
-    th.style.borderTop = `2px solid ${COLORS[i % COLORS.length]}`;
-    th.textContent = col.name;
+    th.style.borderTop =
+      `2px solid ${COLORS[indice % COLORS.length]}`;
 
+    const cabecalho =
+      document.createElement('div');
+
+    cabecalho.className =
+      'flex items-center justify-between gap-2';
+
+    const nome =
+      document.createElement('span');
+
+    nome.className = 'truncate';
+    nome.textContent = coluna.name;
+
+    const botaoFiltro =
+      document.createElement('button');
+
+    botaoFiltro.type = 'button';
+    botaoFiltro.dataset.coluna =
+      String(indice);
+
+    botaoFiltro.className =
+      'botao-filtro inline-flex items-center justify-center w-7 h-7 rounded-md transition-colors';
+
+    botaoFiltro.style.color =
+      'var(--muted)';
+
+    botaoFiltro.title =
+      `Filtrar ${coluna.name}`;
+
+    botaoFiltro.innerHTML = `
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M4 5h16l-6.5 7.5V19l-3 1.5v-8z"/>
+      </svg>
+    `;
+
+    botaoFiltro.addEventListener(
+      'click',
+      (evento) => {
+        evento.stopPropagation();
+
+        abrirMenuFiltro(
+          indice,
+          botaoFiltro
+        );
+      }
+    );
+
+    cabecalho.append(
+      nome,
+      botaoFiltro
+    );
+
+    th.appendChild(cabecalho);
     headRow.appendChild(th);
   });
 
-  const thAcao = document.createElement('th');
-  thAcao.className = 'px-4 py-3';
+  const thAcao =
+    document.createElement('th');
+
+  thAcao.className =
+    'px-4 py-3 text-right whitespace-nowrap';
+
+  const limparFiltros =
+    document.createElement('button');
+
+  limparFiltros.type = 'button';
+  limparFiltros.id = 'limparFiltrosBtn';
+
+  limparFiltros.className =
+    'btn btn-ghost text-xs px-2 py-1.5';
+
+  limparFiltros.textContent =
+    'Limpar filtros';
+
+  limparFiltros.addEventListener(
+    'click',
+    () => {
+      filtrosSelecionados.clear();
+      fecharMenuFiltro();
+      aplicarFiltros();
+    }
+  );
+
+  thAcao.appendChild(limparFiltros);
   headRow.appendChild(thAcao);
 
-  document.getElementById('bodyRows').innerHTML = '';
-  document.getElementById('rowCount').textContent = '0';
+  table.classList.toggle(
+    'hidden',
+    columns.length === 0
+  );
 
-  table.classList.toggle('hidden', columns.length === 0);
-  emptyState.classList.remove('hidden');
+  const quantidadeLinhas =
+    document.querySelectorAll(
+      '#bodyRows tr'
+    ).length;
+
+  emptyState.classList.toggle(
+    'hidden',
+    quantidadeLinhas > 0
+  );
+
+  aplicarFiltros();
 }
 
-/*
-|--------------------------------------------------------------------------
-| EXTRAÇÃO DE PDF
-|--------------------------------------------------------------------------
-*/
+function valoresUnicosDaColuna(indice) {
+  const mapa = new Map();
+
+  document
+    .querySelectorAll('#bodyRows tr')
+    .forEach((linha) => {
+      const input =
+        linha.querySelectorAll(
+          '.cell-editavel'
+        )[indice];
+
+      const exibicao =
+        input?.value.trim() ||
+        PLACEHOLDER;
+
+      const chave =
+        normalizarFiltro(exibicao);
+
+      if (!mapa.has(chave)) {
+        mapa.set(chave, exibicao);
+      }
+    });
+
+  return Array
+    .from(mapa.entries())
+    .sort((a, b) =>
+      a[1].localeCompare(
+        b[1],
+        'pt-BR',
+        {
+          numeric: true,
+          sensitivity: 'base',
+        }
+      )
+    );
+}
+
+function fecharMenuFiltro() {
+  if (menuFiltroAberto) {
+    menuFiltroAberto.remove();
+  }
+
+  menuFiltroAberto = null;
+}
+
+function criarOpcaoFiltro(
+  texto,
+  marcada,
+  destaque = false
+) {
+  const label =
+    document.createElement('label');
+
+  label.className =
+    'flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer';
+
+  label.addEventListener(
+    'mouseenter',
+    () => {
+      label.style.background =
+        'var(--accent-soft)';
+    }
+  );
+
+  label.addEventListener(
+    'mouseleave',
+    () => {
+      label.style.background =
+        'transparent';
+    }
+  );
+
+  const checkbox =
+    document.createElement('input');
+
+  checkbox.type = 'checkbox';
+  checkbox.checked = marcada;
+
+  checkbox.style.accentColor =
+    'var(--accent)';
+
+  const span =
+    document.createElement('span');
+
+  span.className =
+    'truncate flex-1';
+
+  if (destaque) {
+    span.classList.add('font-semibold');
+  }
+
+  span.textContent = texto;
+
+  label.append(checkbox, span);
+
+  return {
+    label,
+    checkbox,
+  };
+}
+
+function abrirMenuFiltro(
+  indice,
+  botao
+) {
+  fecharMenuFiltro();
+
+  const valores =
+    valoresUnicosDaColuna(indice);
+
+  const selecionadosAtuais =
+    filtrosSelecionados.get(indice);
+
+  const temporarios =
+    new Set(
+      selecionadosAtuais ||
+      valores.map(
+        ([chave]) => chave
+      )
+    );
+
+  const menu =
+    document.createElement('div');
+
+  const rect =
+    botao.getBoundingClientRect();
+
+  menu.className =
+    'fixed z-50 w-72 card card-elevated p-3 text-sm';
+
+  menu.style.left =
+    `${Math.max(
+      8,
+      Math.min(
+        rect.left,
+        window.innerWidth - 300
+      )
+    )}px`;
+
+  menu.style.top =
+    `${rect.bottom + 6}px`;
+
+  menu.addEventListener(
+    'click',
+    (evento) => {
+      evento.stopPropagation();
+    }
+  );
+
+  const titulo =
+    document.createElement('div');
+
+  titulo.className =
+    'flex items-center justify-between gap-3 pb-2 mb-2';
+
+  titulo.style.borderBottom =
+    '1px solid var(--line)';
+
+  const nomeColuna =
+    document.createElement('span');
+
+  nomeColuna.className =
+    'font-semibold text-sm truncate';
+
+  nomeColuna.textContent =
+    columns[indice].name;
+
+  const quantidade =
+    document.createElement('span');
+
+  quantidade.className =
+    'mono text-xs shrink-0';
+
+  quantidade.style.color =
+    'var(--muted)';
+
+  quantidade.textContent =
+    `${valores.length} valor(es)`;
+
+  titulo.append(
+    nomeColuna,
+    quantidade
+  );
+
+  menu.appendChild(titulo);
+
+  const lista =
+    document.createElement('div');
+
+  lista.className =
+    'overflow-y-auto pr-1';
+
+  lista.style.maxHeight =
+    '280px';
+
+  const selecionarTudo =
+    criarOpcaoFiltro(
+      '(Selecionar tudo)',
+      temporarios.size ===
+        valores.length,
+      true
+    );
+
+  lista.appendChild(
+    selecionarTudo.label
+  );
+
+  const separador =
+    document.createElement('div');
+
+  separador.className = 'my-1';
+
+  separador.style.borderTop =
+    '1px solid var(--line)';
+
+  lista.appendChild(separador);
+
+  const opcoes =
+    valores.map(
+      ([chave, exibicao]) => {
+        const opcao =
+          criarOpcaoFiltro(
+            exibicao,
+            temporarios.has(chave)
+          );
+
+        lista.appendChild(
+          opcao.label
+        );
+
+        return {
+          chave,
+          checkbox:
+            opcao.checkbox,
+        };
+      }
+    );
+
+  function atualizarSelecionarTudo() {
+    selecionarTudo.checkbox.checked =
+      temporarios.size ===
+      valores.length;
+
+    selecionarTudo.checkbox.indeterminate =
+      temporarios.size > 0 &&
+      temporarios.size <
+        valores.length;
+  }
+
+  selecionarTudo.checkbox.addEventListener(
+    'change',
+    () => {
+      temporarios.clear();
+
+      opcoes.forEach((opcao) => {
+        opcao.checkbox.checked =
+          selecionarTudo.checkbox.checked;
+
+        if (
+          selecionarTudo.checkbox.checked
+        ) {
+          temporarios.add(
+            opcao.chave
+          );
+        }
+      });
+
+      atualizarSelecionarTudo();
+    }
+  );
+
+  opcoes.forEach((opcao) => {
+    opcao.checkbox.addEventListener(
+      'change',
+      () => {
+        if (opcao.checkbox.checked) {
+          temporarios.add(
+            opcao.chave
+          );
+        } else {
+          temporarios.delete(
+            opcao.chave
+          );
+        }
+
+        atualizarSelecionarTudo();
+      }
+    );
+  });
+
+  menu.appendChild(lista);
+
+  const acoes =
+    document.createElement('div');
+
+  acoes.className =
+    'grid grid-cols-2 gap-2 mt-3 pt-3';
+
+  acoes.style.borderTop =
+    '1px solid var(--line)';
+
+  const limpar =
+    document.createElement('button');
+
+  limpar.type = 'button';
+
+  limpar.className =
+    'btn btn-outline px-3 py-2 text-xs';
+
+  limpar.textContent = 'Limpar';
+
+  limpar.addEventListener(
+    'click',
+    () => {
+      filtrosSelecionados.delete(
+        indice
+      );
+
+      fecharMenuFiltro();
+      aplicarFiltros();
+    }
+  );
+
+  const aplicar =
+    document.createElement('button');
+
+  aplicar.type = 'button';
+
+  aplicar.className =
+    'btn btn-accent px-3 py-2 text-xs';
+
+  aplicar.textContent = 'Aplicar';
+
+  aplicar.addEventListener(
+    'click',
+    () => {
+      if (
+        temporarios.size ===
+        valores.length
+      ) {
+        filtrosSelecionados.delete(
+          indice
+        );
+      } else {
+        filtrosSelecionados.set(
+          indice,
+          new Set(temporarios)
+        );
+      }
+
+      fecharMenuFiltro();
+      aplicarFiltros();
+    }
+  );
+
+  acoes.append(limpar, aplicar);
+  menu.appendChild(acoes);
+
+  document.body.appendChild(menu);
+
+  menuFiltroAberto = menu;
+}
+
+function aplicarFiltros() {
+  const linhas =
+    Array.from(
+      document.querySelectorAll(
+        '#bodyRows tr'
+      )
+    );
+
+  let visiveis = 0;
+
+  linhas.forEach((linha) => {
+    const campos =
+      Array.from(
+        linha.querySelectorAll(
+          '.cell-editavel'
+        )
+      );
+
+    const corresponde =
+      Array
+        .from(
+          filtrosSelecionados.entries()
+        )
+        .every(
+          ([indice, permitidos]) => {
+            const exibicao =
+              campos[indice]
+                ?.value
+                .trim() ||
+              PLACEHOLDER;
+
+            return permitidos.has(
+              normalizarFiltro(exibicao)
+            );
+          }
+        );
+
+    linha.classList.toggle(
+      'hidden',
+      !corresponde
+    );
+
+    if (corresponde) {
+      visiveis++;
+    }
+  });
+
+  const botaoLimpar =
+    document.getElementById(
+      'limparFiltrosBtn'
+    );
+
+  const filtrosAtivos =
+    filtrosSelecionados.size > 0;
+
+  if (botaoLimpar) {
+    botaoLimpar.disabled =
+      !filtrosAtivos;
+
+    botaoLimpar.textContent =
+      filtrosAtivos
+        ? `Limpar (${visiveis}/${linhas.length})`
+        : 'Limpar filtros';
+  }
+
+  document
+    .querySelectorAll(
+      '.botao-filtro'
+    )
+    .forEach((botao) => {
+      const indice =
+        Number(
+          botao.dataset.coluna
+        );
+
+      const ativo =
+        filtrosSelecionados.has(
+          indice
+        );
+
+      botao.style.background =
+        ativo
+          ? 'var(--accent)'
+          : 'transparent';
+
+      botao.style.color =
+        ativo
+          ? '#ffffff'
+          : 'var(--muted)';
+
+      botao.style.boxShadow =
+        ativo
+          ? 'var(--shadow-sm)'
+          : 'none';
+    });
+}
 
 async function extrairTextoPDF(file) {
-  const buffer = await file.arrayBuffer();
+  const buffer =
+    await file.arrayBuffer();
 
-  const pdf = await pdfjsLib.getDocument({
-    data: buffer,
-  }).promise;
+  const pdf =
+    await pdfjsLib.getDocument({
+      data: buffer,
+    }).promise;
 
   let texto = '';
 
-  for (let paginaAtual = 1; paginaAtual <= pdf.numPages; paginaAtual++) {
-    const pagina = await pdf.getPage(paginaAtual);
-    const conteudo = await pagina.getTextContent();
+  for (
+    let paginaAtual = 1;
+    paginaAtual <= pdf.numPages;
+    paginaAtual++
+  ) {
+    const pagina =
+      await pdf.getPage(
+        paginaAtual
+      );
 
-    texto += conteudo.items.map((item) => item.str).join(' ') + ' ';
+    const conteudo =
+      await pagina.getTextContent();
+
+    texto +=
+      conteudo.items
+        .map((item) => item.str)
+        .join(' ') + ' ';
   }
 
-  return normalizarTextoDocumento(texto);
+  return normalizarTextoDocumento(
+    texto
+  );
 }
 
-async function renderizarPaginaPDFComoImagem(file) {
-  const buffer = await file.arrayBuffer();
+async function renderizarPaginaPDFComoImagem(
+  file
+) {
+  const buffer =
+    await file.arrayBuffer();
 
-  const pdf = await pdfjsLib.getDocument({
-    data: buffer,
-  }).promise;
+  const pdf =
+    await pdfjsLib.getDocument({
+      data: buffer,
+    }).promise;
 
-  const pagina = await pdf.getPage(1);
-  const viewport = pagina.getViewport({ scale: 2.5 });
+  const pagina =
+    await pdf.getPage(1);
 
-  const canvas = document.createElement('canvas');
+  const viewport =
+    pagina.getViewport({
+      scale: 2.5,
+    });
+
+  const canvas =
+    document.createElement('canvas');
 
   canvas.width = viewport.width;
   canvas.height = viewport.height;
 
   await pagina.render({
-    canvasContext: canvas.getContext('2d'),
+    canvasContext:
+      canvas.getContext('2d'),
     viewport,
   }).promise;
 
   return canvas;
 }
 
-/*
-|--------------------------------------------------------------------------
-| OCR
-|--------------------------------------------------------------------------
-*/
+async function reconhecerTexto(
+  imagemOuCanvas,
+  nomeArquivo,
+  statusEl
+) {
+  const { data } =
+    await Tesseract.recognize(
+      imagemOuCanvas,
+      'por',
+      {
+        logger: (mensagem) => {
+          if (
+            mensagem.status ===
+            'recognizing text'
+          ) {
+            const progresso =
+              Math.round(
+                mensagem.progress * 100
+              );
 
-async function reconhecerTexto(imagemOuCanvas, nomeArquivo, statusEl) {
-  const { data } = await Tesseract.recognize(
-    imagemOuCanvas,
-    'por',
-    {
-      logger: (mensagem) => {
-        if (mensagem.status === 'recognizing text') {
-          const progresso = Math.round(mensagem.progress * 100);
-
-          statusEl.textContent =
-            `OCR ${progresso}% — ${nomeArquivo}`;
-        }
-      },
-    }
-  );
+            statusEl.textContent =
+              `OCR ${progresso}% — ${nomeArquivo}`;
+          }
+        },
+      }
+    );
 
   return {
-    texto: normalizarTextoDocumento(data.text),
+    texto:
+      normalizarTextoDocumento(
+        data.text
+      ),
 
-    linhas: (data.lines || [])
-      .map((linha) => linha.text.trim())
-      .filter(Boolean),
+    linhas:
+      (data.lines || [])
+        .map((linha) =>
+          linha.text.trim()
+        )
+        .filter(Boolean),
   };
 }
 
-const EXT_IMAGEM = ['jpg', 'jpeg', 'png'];
+const EXT_IMAGEM = [
+  'jpg',
+  'jpeg',
+  'png',
+];
 
 function extensao(nome) {
-  return nome.split('.').pop().toLowerCase();
+  return nome
+    .split('.')
+    .pop()
+    .toLowerCase();
 }
 
-/*
-|--------------------------------------------------------------------------
-| EXTRAÇÃO DE CAMPOS EM PDF COM TEXTO
-|--------------------------------------------------------------------------
-*/
-
 function extrairCampos(texto) {
-  texto = normalizarTextoDocumento(texto);
+  texto =
+    normalizarTextoDocumento(texto);
 
   const linha = {};
   let algumaFalha = false;
 
   columns.forEach((coluna) => {
-    const regras = ANCORAS[coluna.name];
+    const regras =
+      ANCORAS[coluna.name];
 
     const valor = regras
       ? tentarAncoras(texto, regras)
@@ -299,12 +880,6 @@ function extrairCampos(texto) {
     precisaRevisao: algumaFalha,
   };
 }
-
-/*
-|--------------------------------------------------------------------------
-| EXTRAÇÃO DE CAMPOS COM OCR
-|--------------------------------------------------------------------------
-*/
 
 const ROTULOS_OCR = {
   'Número da NF': [
@@ -328,7 +903,10 @@ const ROTULOS_OCR = {
   ],
 };
 
-function extrairPeloFormato(nomeColuna, linhaDeTexto) {
+function extrairPeloFormato(
+  nomeColuna,
+  linhaDeTexto
+) {
   if (nomeColuna === 'Número da NF') {
     const resultado =
       linhaDeTexto.match(
@@ -341,25 +919,34 @@ function extrairPeloFormato(nomeColuna, linhaDeTexto) {
         /\b0*(\d{3,12})\s*\/\s*NF-?e\b/i
       );
 
-    return resultado ? resultado[1] : null;
+    return resultado
+      ? resultado[1]
+      : null;
   }
 
-  if (nomeColuna === 'Data de Emissão') {
+  if (
+    nomeColuna ===
+    'Data de Emissão'
+  ) {
     const resultado =
-      linhaDeTexto.match(/\d{2}\/\d{2}\/\d{4}/);
+      linhaDeTexto.match(
+        /\d{2}\/\d{2}\/\d{4}/
+      );
 
-    return resultado ? resultado[0] : null;
+    return resultado
+      ? resultado[0]
+      : null;
   }
 
   if (nomeColuna === 'Valor') {
     const valores =
-      linhaDeTexto.match(/\d{1,3}(?:\.\d{3})*,\d{2}/g);
+      linhaDeTexto.match(
+        /\d{1,3}(?:\.\d{3})*,\d{2}/g
+      );
 
-    if (valores && valores.length) {
-      return valores[valores.length - 1];
-    }
-
-    return null;
+    return valores?.length
+      ? valores[valores.length - 1]
+      : null;
   }
 
   if (nomeColuna === 'Cliente') {
@@ -378,11 +965,14 @@ function extrairPeloFormato(nomeColuna, linhaDeTexto) {
 
 function extrairCamposOCR(resultadoOCR) {
   const texto =
-    normalizarTextoDocumento(resultadoOCR.texto);
+    normalizarTextoDocumento(
+      resultadoOCR.texto
+    );
 
-  const linhas = resultadoOCR.linhas;
+  const linhas =
+    resultadoOCR.linhas;
+
   const linhaResultado = {};
-
   let algumaFalha = false;
 
   columns.forEach((coluna) => {
@@ -391,11 +981,6 @@ function extrairCamposOCR(resultadoOCR) {
     const rotulos =
       ROTULOS_OCR[coluna.name];
 
-    /*
-     * Uma NFS-e possui prestador e tomador.
-     * Para não retornar o prestador como cliente, a busca do cliente
-     * começa obrigatoriamente na seção "Tomador de Serviços".
-     */
     if (
       coluna.name === 'Cliente' &&
       ANCORAS[coluna.name]
@@ -407,9 +992,12 @@ function extrairCamposOCR(resultadoOCR) {
     }
 
     if (!valor && rotulos) {
-      const indiceRotulo = linhas.findIndex((linha) =>
-        rotulos.some((regex) => regex.test(linha))
-      );
+      const indiceRotulo =
+        linhas.findIndex((linha) =>
+          rotulos.some((regex) =>
+            regex.test(linha)
+          )
+        );
 
       if (indiceRotulo !== -1) {
         valor = extrairPeloFormato(
@@ -417,10 +1005,6 @@ function extrairCamposOCR(resultadoOCR) {
           linhas[indiceRotulo]
         );
 
-        /*
-         * O OCR pode colocar o rótulo e o valor em linhas
-         * diferentes. Por isso, verifica até três linhas abaixo.
-         */
         for (
           let salto = 1;
           !valor && salto <= 3;
@@ -449,7 +1033,8 @@ function extrairCamposOCR(resultadoOCR) {
       );
     }
 
-    linhaResultado[coluna.name] = valor;
+    linhaResultado[coluna.name] =
+      valor;
 
     if (!valor) {
       algumaFalha = true;
@@ -462,13 +1047,8 @@ function extrairCamposOCR(resultadoOCR) {
   };
 }
 
-/*
-|--------------------------------------------------------------------------
-| LINHAS DA TABELA
-|--------------------------------------------------------------------------
-*/
-
-const PLACEHOLDER = '— não encontrado';
+const PLACEHOLDER =
+  '— não encontrado';
 
 function adicionarLinha(
   nomeArquivo,
@@ -477,7 +1057,9 @@ function adicionarLinha(
   viaOCR
 ) {
   const bodyRows =
-    document.getElementById('bodyRows');
+    document.getElementById(
+      'bodyRows'
+    );
 
   const tr =
     document.createElement('tr');
@@ -491,7 +1073,8 @@ function adicionarLinha(
     const td =
       document.createElement('td');
 
-    td.className = 'px-2 py-1.5';
+    td.className =
+      'px-2 py-1.5';
 
     const input =
       document.createElement('input');
@@ -507,26 +1090,38 @@ function adicionarLinha(
       'cell-editavel w-full px-2 py-1.5 text-sm mono bg-transparent border-0';
 
     if (!valor) {
-      input.style.color = 'var(--warn-text)';
+      input.style.color =
+        'var(--warn-text)';
     }
 
-    input.addEventListener('input', () => {
-      input.style.color =
-        input.value.trim()
-          ? ''
-          : 'var(--warn-text)';
-    });
+    input.addEventListener(
+      'input',
+      () => {
+        input.style.color =
+          input.value.trim()
+            ? ''
+            : 'var(--warn-text)';
 
-    input.addEventListener('keydown', (evento) => {
-      if (evento.key === 'Enter') {
-        evento.preventDefault();
-        input.blur();
+        aplicarFiltros();
       }
-    });
+    );
 
-    input.addEventListener('blur', () => {
-      reavaliarLinha(tr);
-    });
+    input.addEventListener(
+      'keydown',
+      (evento) => {
+        if (evento.key === 'Enter') {
+          evento.preventDefault();
+          input.blur();
+        }
+      }
+    );
+
+    input.addEventListener(
+      'blur',
+      () => {
+        reavaliarLinha(tr);
+      }
+    );
 
     td.appendChild(input);
     tr.appendChild(td);
@@ -542,7 +1137,7 @@ function adicionarLinha(
     ? `
       <span
         class="badge badge-ocr mr-2"
-        title="Lido por reconhecimento de imagem — confira com mais atenção"
+        title="Lido por reconhecimento de imagem"
       >
         OCR
       </span>
@@ -569,8 +1164,10 @@ function adicionarLinha(
   const quantidade =
     bodyRows.children.length;
 
-  document.getElementById('rowCount').textContent =
-    String(quantidade);
+  document
+    .getElementById('rowCount')
+    .textContent =
+      String(quantidade);
 
   document
     .getElementById('emptyState')
@@ -579,6 +1176,8 @@ function adicionarLinha(
   document
     .getElementById('previewTable')
     .classList.remove('hidden');
+
+  aplicarFiltros();
 }
 
 function atualizarDestaqueLinha(
@@ -593,11 +1192,14 @@ function atualizarDestaqueLinha(
 
 function reavaliarLinha(tr) {
   const campos =
-    tr.querySelectorAll('.cell-editavel');
+    tr.querySelectorAll(
+      '.cell-editavel'
+    );
 
   const aindaFaltaAlgo =
     Array.from(campos).some(
-      (input) => input.value.trim() === ''
+      (input) =>
+        input.value.trim() === ''
     );
 
   atualizarDestaqueLinha(
@@ -606,24 +1208,23 @@ function reavaliarLinha(tr) {
   );
 }
 
-/*
-|--------------------------------------------------------------------------
-| PROCESSAMENTO DOS ARQUIVOS
-|--------------------------------------------------------------------------
-*/
-
-async function processarArquivos(fileList) {
+async function processarArquivos(
+  fileList
+) {
   const status =
-    document.getElementById('statusMsg');
+    document.getElementById(
+      'statusMsg'
+    );
 
   const todos =
     Array.from(fileList);
 
-  const arquivos = todos.filter((arquivo) =>
-    ['pdf', ...EXT_IMAGEM].includes(
-      extensao(arquivo.name)
-    )
-  );
+  const arquivos =
+    todos.filter((arquivo) =>
+      ['pdf', ...EXT_IMAGEM].includes(
+        extensao(arquivo.name)
+      )
+    );
 
   const ignorados =
     todos.length - arquivos.length;
@@ -647,9 +1248,6 @@ async function processarArquivos(fileList) {
 
     try {
       if (EXT_IMAGEM.includes(ext)) {
-        /*
-         * JPG ou PNG: utiliza OCR diretamente.
-         */
         viaOCR = true;
 
         const resultadoOCR =
@@ -660,22 +1258,20 @@ async function processarArquivos(fileList) {
           );
 
         resultadoExtracao =
-          extrairCamposOCR(resultadoOCR);
+          extrairCamposOCR(
+            resultadoOCR
+          );
       } else {
-        /*
-         * PDF: tenta primeiro a camada de texto.
-         */
         const texto =
           await extrairTextoPDF(file);
 
         if (texto.length < 30) {
-          /*
-           * PDF digitalizado sem camada de texto.
-           */
           viaOCR = true;
 
           const canvas =
-            await renderizarPaginaPDFComoImagem(file);
+            await renderizarPaginaPDFComoImagem(
+              file
+            );
 
           const resultadoOCR =
             await reconhecerTexto(
@@ -685,24 +1281,23 @@ async function processarArquivos(fileList) {
             );
 
           resultadoExtracao =
-            extrairCamposOCR(resultadoOCR);
+            extrairCamposOCR(
+              resultadoOCR
+            );
         } else {
-          /*
-           * PDF com texto nativo.
-           */
           resultadoExtracao =
             extrairCampos(texto);
 
-          /*
-           * Alguns PDFs possuem apenas parte do conteúdo como texto.
-           * Se algum campo não for encontrado, o OCR é utilizado como
-           * segunda tentativa.
-           */
-          if (resultadoExtracao.precisaRevisao) {
+          if (
+            resultadoExtracao
+              .precisaRevisao
+          ) {
             viaOCR = true;
 
             const canvas =
-              await renderizarPaginaPDFComoImagem(file);
+              await renderizarPaginaPDFComoImagem(
+                file
+              );
 
             const resultadoOCR =
               await reconhecerTexto(
@@ -712,25 +1307,35 @@ async function processarArquivos(fileList) {
               );
 
             const camposOCR =
-              extrairCamposOCR(resultadoOCR);
+              extrairCamposOCR(
+                resultadoOCR
+              );
 
-            columns.forEach((coluna) => {
-              const nome =
-                coluna.name;
+            columns.forEach(
+              (coluna) => {
+                const nome =
+                  coluna.name;
 
-              if (
-                !resultadoExtracao.valores[nome] &&
-                camposOCR.valores[nome]
-              ) {
-                resultadoExtracao.valores[nome] =
-                  camposOCR.valores[nome];
+                if (
+                  !resultadoExtracao
+                    .valores[nome] &&
+                  camposOCR.valores[nome]
+                ) {
+                  resultadoExtracao
+                    .valores[nome] =
+                    camposOCR.valores[nome];
+                }
               }
-            });
+            );
 
-            resultadoExtracao.precisaRevisao =
+            resultadoExtracao
+              .precisaRevisao =
               columns.some(
                 (coluna) =>
-                  !resultadoExtracao.valores[coluna.name]
+                  !resultadoExtracao
+                    .valores[
+                      coluna.name
+                    ]
               );
           }
         }
@@ -764,122 +1369,142 @@ async function processarArquivos(fileList) {
     `${arquivos.length} arquivo(s) processado(s).` +
     (
       ignorados
-        ? ` ${ignorados} ignorado(s) por formato não suportado.`
+        ? ` ${ignorados} ignorado(s).`
         : ''
     );
 }
 
-/*
-|--------------------------------------------------------------------------
-| ADICIONAR COLUNA
-|--------------------------------------------------------------------------
-*/
-
 document
   .getElementById('addCol')
-  .addEventListener('click', () => {
-    const nameInput =
-      document.getElementById('colName');
+  .addEventListener(
+    'click',
+    () => {
+      const nameInput =
+        document.getElementById(
+          'colName'
+        );
 
-    const typeSelect =
-      document.getElementById('colType');
+      const typeSelect =
+        document.getElementById(
+          'colType'
+        );
 
-    const name =
-      nameInput.value.trim();
+      const name =
+        nameInput.value.trim();
 
-    if (!name) {
-      nameInput.focus();
-      return;
+      if (!name) {
+        nameInput.focus();
+        return;
+      }
+
+      columns.push({
+        name,
+        type: typeSelect.value,
+      });
+
+      nameInput.value = '';
+
+      filtrosSelecionados.clear();
+      renderColumnList();
+      renderTable();
     }
-
-    columns.push({
-      name,
-      type: typeSelect.value,
-    });
-
-    nameInput.value = '';
-
-    renderColumnList();
-    renderTable();
-  });
+  );
 
 document
   .getElementById('colName')
-  .addEventListener('keydown', (evento) => {
-    if (evento.key === 'Enter') {
-      document
-        .getElementById('addCol')
-        .click();
+  .addEventListener(
+    'keydown',
+    (evento) => {
+      if (evento.key === 'Enter') {
+        document
+          .getElementById('addCol')
+          .click();
+      }
     }
-  });
+  );
 
 document
   .getElementById('generateBtn')
-  .addEventListener('click', renderTable);
-
-/*
-|--------------------------------------------------------------------------
-| INPUTS DE ARQUIVOS
-|--------------------------------------------------------------------------
-*/
+  .addEventListener(
+    'click',
+    renderTable
+  );
 
 document
   .getElementById('fileInput')
-  .addEventListener('change', async (evento) => {
-    await processarArquivos(evento.target.files);
+  .addEventListener(
+    'change',
+    async (evento) => {
+      await processarArquivos(
+        evento.target.files
+      );
 
-    // Permite selecionar novamente o mesmo arquivo.
-    evento.target.value = '';
-  });
+      evento.target.value = '';
+    }
+  );
 
 document
   .getElementById('fileInputEmpty')
-  .addEventListener('change', async (evento) => {
-    await processarArquivos(evento.target.files);
+  .addEventListener(
+    'change',
+    async (evento) => {
+      await processarArquivos(
+        evento.target.files
+      );
 
-    evento.target.value = '';
-  });
-
-/*
-|--------------------------------------------------------------------------
-| ARRASTAR E SOLTAR
-|--------------------------------------------------------------------------
-*/
+      evento.target.value = '';
+    }
+  );
 
 const dropZone =
   document.getElementById('dropZone');
 
-['dragenter', 'dragover'].forEach((evento) => {
-  dropZone.addEventListener(evento, (e) => {
-    e.preventDefault();
-    e.stopPropagation();
+[
+  'dragenter',
+  'dragover',
+].forEach((evento) => {
+  dropZone.addEventListener(
+    evento,
+    (e) => {
+      e.preventDefault();
+      e.stopPropagation();
 
-    dropZone.classList.add('is-active');
-  });
+      dropZone.classList.add(
+        'is-active'
+      );
+    }
+  );
 });
 
-['dragleave', 'drop'].forEach((evento) => {
-  dropZone.addEventListener(evento, (e) => {
-    e.preventDefault();
-    e.stopPropagation();
+[
+  'dragleave',
+  'drop',
+].forEach((evento) => {
+  dropZone.addEventListener(
+    evento,
+    (e) => {
+      e.preventDefault();
+      e.stopPropagation();
 
-    dropZone.classList.remove('is-active');
-  });
+      dropZone.classList.remove(
+        'is-active'
+      );
+    }
+  );
 });
 
-dropZone.addEventListener('drop', (evento) => {
-  if (evento.dataTransfer.files.length) {
-    processarArquivos(
-      evento.dataTransfer.files
-    );
+dropZone.addEventListener(
+  'drop',
+  (evento) => {
+    if (
+      evento.dataTransfer.files.length
+    ) {
+      processarArquivos(
+        evento.dataTransfer.files
+      );
+    }
   }
-});
-
-/*
-|--------------------------------------------------------------------------
-| COPIAR PARA O EXCEL
-|--------------------------------------------------------------------------
-*/
+);
 
 async function copiarTabela() {
   const cabecalho =
@@ -889,70 +1514,97 @@ async function copiarTabela() {
 
   const linhasTexto =
     Array.from(
-      document.querySelectorAll('#bodyRows tr')
-    ).map((tr) => {
+      document.querySelectorAll(
+        '#bodyRows tr:not(.hidden)'
+      )
+    ).map((linha) => {
       const campos =
-        tr.querySelectorAll('.cell-editavel');
+        linha.querySelectorAll(
+          '.cell-editavel'
+        );
 
-      return Array.from(campos)
+      return Array
+        .from(campos)
         .map((input) => input.value)
         .join('\t');
     });
 
   const tsv =
-    [cabecalho, ...linhasTexto].join('\n');
+    [cabecalho, ...linhasTexto]
+      .join('\n');
 
   try {
-    await navigator.clipboard.writeText(tsv);
+    await navigator
+      .clipboard
+      .writeText(tsv);
   } catch (erro) {
     const textarea =
-      document.createElement('textarea');
+      document.createElement(
+        'textarea'
+      );
 
     textarea.value = tsv;
-    textarea.style.position = 'fixed';
+    textarea.style.position =
+      'fixed';
+
     textarea.style.opacity = '0';
 
-    document.body.appendChild(textarea);
+    document.body.appendChild(
+      textarea
+    );
 
     textarea.select();
     document.execCommand('copy');
 
-    document.body.removeChild(textarea);
+    document.body.removeChild(
+      textarea
+    );
   }
 
-  const btn =
-    document.getElementById('copiarBtn');
+  const botao =
+    document.getElementById(
+      'copiarBtn'
+    );
 
   const conteudoOriginal =
-    btn.innerHTML;
+    botao.innerHTML;
 
-  btn.textContent = 'Copiado ✓';
-  btn.disabled = true;
+  botao.textContent = 'Copiado ✓';
+  botao.disabled = true;
 
   setTimeout(() => {
-    btn.innerHTML = conteudoOriginal;
-    btn.disabled = false;
+    botao.innerHTML =
+      conteudoOriginal;
+
+    botao.disabled = false;
   }, 1500);
 }
 
 document
   .getElementById('copiarBtn')
-  .addEventListener('click', copiarTabela);
+  .addEventListener(
+    'click',
+    copiarTabela
+  );
 
-/*
-|--------------------------------------------------------------------------
-| CONFIGURAÇÃO DO PDF.JS
-|--------------------------------------------------------------------------
-*/
+document.addEventListener(
+  'click',
+  fecharMenuFiltro
+);
+
+window.addEventListener(
+  'resize',
+  fecharMenuFiltro
+);
+
+window.addEventListener(
+  'scroll',
+  fecharMenuFiltro,
+  true
+);
 
 pdfjsLib.GlobalWorkerOptions.workerSrc =
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-
-/*
-|--------------------------------------------------------------------------
-| INICIALIZAÇÃO
-|--------------------------------------------------------------------------
-*/
 
 renderColumnList();
 renderTable();
