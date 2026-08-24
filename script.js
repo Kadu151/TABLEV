@@ -34,9 +34,7 @@ function renderColumnList() {
           style="background:${COLORS[i % COLORS.length]}"
         ></span>
 
-        <span class="font-medium truncate">
-          ${col.name}
-        </span>
+        <span class="font-medium truncate">${col.name}</span>
 
         <span
           class="mono text-xs shrink-0"
@@ -409,10 +407,20 @@ function abrirMenuFiltro(
     )}px`;
 
   menu.style.top =
-    `${rect.bottom + 6}px`;
+    `${Math.min(
+      rect.bottom + 6,
+      window.innerHeight - 430
+    )}px`;
 
   menu.addEventListener(
     'click',
+    (evento) => {
+      evento.stopPropagation();
+    }
+  );
+
+  menu.addEventListener(
+    'wheel',
     (evento) => {
       evento.stopPropagation();
     }
@@ -459,10 +467,33 @@ function abrirMenuFiltro(
     document.createElement('div');
 
   lista.className =
-    'overflow-y-auto pr-1';
+    'overflow-y-auto overflow-x-hidden pr-1';
 
-  lista.style.maxHeight =
-    '280px';
+  lista.style.height = '280px';
+  lista.style.maxHeight = '45vh';
+  lista.style.overflowY = 'auto';
+  lista.style.overflowX = 'hidden';
+  lista.style.overscrollBehavior =
+    'contain';
+
+  lista.style.scrollbarWidth =
+    'thin';
+
+  lista.style.touchAction =
+    'pan-y';
+
+  lista.addEventListener(
+    'wheel',
+    (evento) => {
+      evento.stopPropagation();
+
+      lista.scrollTop +=
+        evento.deltaY;
+    },
+    {
+      passive: true,
+    }
+  );
 
   const selecionarTudo =
     criarOpcaoFiltro(
@@ -1599,7 +1630,18 @@ window.addEventListener(
 
 window.addEventListener(
   'scroll',
-  fecharMenuFiltro,
+  (evento) => {
+    if (
+      menuFiltroAberto &&
+      menuFiltroAberto.contains(
+        evento.target
+      )
+    ) {
+      return;
+    }
+
+    fecharMenuFiltro();
+  },
   true
 );
 
