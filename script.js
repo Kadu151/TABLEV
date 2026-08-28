@@ -1,10 +1,27 @@
-const COLORS = ['#2F5D50', '#8A5A3B', '#3D5A80', '#7A6B4F'];
+const COLORS = [
+  '#2F5D50',
+  '#8A5A3B',
+  '#3D5A80',
+  '#7A6B4F',
+];
 
 let columns = [
-  { name: 'Número da NF', type: 'texto' },
-  { name: 'Cliente', type: 'texto' },
-  { name: 'Data de Emissão', type: 'data' },
-  { name: 'Valor', type: 'valor' },
+  {
+    name: 'Número da NF',
+    type: 'texto',
+  },
+  {
+    name: 'Cliente',
+    type: 'texto',
+  },
+  {
+    name: 'Data de Emissão',
+    type: 'data',
+  },
+  {
+    name: 'Valor',
+    type: 'valor',
+  },
 ];
 
 const typeLabel = {
@@ -14,27 +31,44 @@ const typeLabel = {
   numero: 'Número',
 };
 
-const filtrosSelecionados = new Map();
+const filtrosSelecionados =
+  new Map();
+
 let menuFiltroAberto = null;
 
 function renderColumnList() {
-  const list = document.getElementById('colList');
+  const list =
+    document.getElementById(
+      'colList'
+    );
+
   list.innerHTML = '';
 
   columns.forEach((col, i) => {
-    const chip = document.createElement('div');
+    const chip =
+      document.createElement('div');
 
     chip.className =
       'col-chip card flex items-center justify-between px-3 py-2 text-sm';
 
     chip.innerHTML = `
-      <div class="flex items-center gap-2 min-w-0">
+      <div
+        class="flex items-center gap-2 min-w-0"
+      >
         <span
           class="type-dot shrink-0"
-          style="background:${COLORS[i % COLORS.length]}"
+          style="background:${
+            COLORS[
+              i % COLORS.length
+            ]
+          }"
         ></span>
 
-        <span class="font-medium truncate">${col.name}</span>
+        <span
+          class="font-medium truncate"
+        >
+          ${col.name}
+        </span>
 
         <span
           class="mono text-xs shrink-0"
@@ -58,7 +92,9 @@ function renderColumnList() {
           stroke-width="2.5"
           stroke-linecap="round"
         >
-          <path d="M18 6 6 18M6 6l12 12"/>
+          <path
+            d="M18 6 6 18M6 6l12 12"
+          />
         </svg>
       </button>
     `;
@@ -67,49 +103,72 @@ function renderColumnList() {
   });
 
   list
-    .querySelectorAll('.remove-col')
+    .querySelectorAll(
+      '.remove-col'
+    )
     .forEach((btn) => {
-      btn.addEventListener('click', () => {
-        columns.splice(
-          Number(btn.dataset.i),
-          1
-        );
+      btn.addEventListener(
+        'click',
+        () => {
+          columns.splice(
+            Number(
+              btn.dataset.i
+            ),
+            1
+          );
 
-        filtrosSelecionados.clear();
-        renderColumnList();
-        renderTable();
-      });
+          filtrosSelecionados.clear();
+
+          renderColumnList();
+          renderTable();
+        }
+      );
     });
 }
 
 const ANCORAS = {
   'Número da NF': [
     /DANFE[\s\S]*?N[º°.]\s*0*(\d{4,9})/i,
+
     /DANFE[\s\S]*?NF-?e\.?\s*0*(\d{4,9})/i,
+
     /N[ÚU]MERO\s*\/\s*S[ÉE]RIE\s+0*(\d{3,12})\s+NF-?E/i,
+
     /\b0*(\d{3,12})\s*\/\s*NF-?E\b/i,
   ],
 
   Cliente: [
     /NOME\s*\/?\s*RAZ[ÃA]O\s*SOCIAL\s+([A-ZÀ-Ú0-9.,&\-\s]+?)\s+CNPJ/i,
+
     /TOMADOR\s+DE\s+SERVI[ÇC]OS[\s\S]{0,250}?NOME\s*\/?\s*RAZ[ÃA]O\s*SOCIAL\s*:?\s*([A-ZÀ-Ú0-9.,&()'\-\s]+?)\s+CPF\s*\/?\s*CNPJ/i,
   ],
 
   'Data de Emissão': [
     /DATA\s*DE\s*EMISS[ÃA]O\s*(\d{2}\/\d{2}\/\d{4})/i,
+
     /\bEMISS[ÃA]O\s+(\d{2}\/\d{2}\/\d{4})(?:\s+\d{2}:\d{2}(?::\d{2})?)?/i,
   ],
 
   Valor: [
     /(?:VALOR\s*)?TOTAL\s*DA\s*NOTA\s*(?:R\$)?\s*([\d.,]+)/i,
+
     /VALOR\s*TOTAL\s*DA\s*NOTA\s*\(\s*R\$\s*\)[\s\S]{0,350}?\b(\d{1,3}(?:\.\d{3})*,\d{2})\b/i,
+
+    /VALOR\s*TOTAL\s*DO\s*SERVI[ÇC]O\s*(?:=|:)?\s*(?:R\$)?\s*(\d{1,3}(?:\.\d{3})*,\d{2})/i,
+
+    /VALOR\s*TOTAL\s*COBRADO\s*(?:=|:)?\s*(?:R\$)?\s*(\d{1,3}(?:\.\d{3})*,\d{2})/i,
   ],
 };
 
-function normalizarTextoDocumento(texto) {
+function normalizarTextoDocumento(
+  texto
+) {
   return String(texto || '')
     .normalize('NFC')
-    .replace(/[\u00A0\t\r\n]+/g, ' ')
+    .replace(
+      /[\u00A0\t\r\n]+/g,
+      ' '
+    )
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -117,17 +176,30 @@ function normalizarTextoDocumento(texto) {
 function normalizarFiltro(valor) {
   return String(valor ?? '')
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
+    .replace(
+      /[\u0300-\u036f]/g,
+      ''
+    )
     .toLowerCase()
     .trim();
 }
 
-function tentarAncoras(texto, listaRegex) {
-  for (const regex of listaRegex) {
-    const resultado = texto.match(regex);
+function tentarAncoras(
+  texto,
+  listaRegex
+) {
+  for (
+    const regex of listaRegex
+  ) {
+    const resultado =
+      texto.match(regex);
 
-    if (resultado && resultado[1]) {
-      return resultado[1].trim();
+    if (
+      resultado &&
+      resultado[1]
+    ) {
+      return resultado[1]
+        .trim();
     }
   }
 
@@ -136,88 +208,120 @@ function tentarAncoras(texto, listaRegex) {
 
 function renderTable() {
   const headRow =
-    document.getElementById('headRow');
+    document.getElementById(
+      'headRow'
+    );
 
   const table =
-    document.getElementById('previewTable');
+    document.getElementById(
+      'previewTable'
+    );
 
   const emptyState =
-    document.getElementById('emptyState');
+    document.getElementById(
+      'emptyState'
+    );
 
   headRow.innerHTML = '';
 
-  columns.forEach((coluna, indice) => {
-    const th = document.createElement('th');
-
-    th.className =
-      'text-left px-4 py-3 mono text-xs font-semibold uppercase tracking-wide';
-
-    th.style.borderTop =
-      `2px solid ${COLORS[indice % COLORS.length]}`;
-
-    const cabecalho =
-      document.createElement('div');
-
-    cabecalho.className =
-      'flex items-center justify-between gap-2';
-
-    const nome =
-      document.createElement('span');
-
-    nome.className = 'truncate';
-    nome.textContent = coluna.name;
-
-    const botaoFiltro =
-      document.createElement('button');
-
-    botaoFiltro.type = 'button';
-    botaoFiltro.dataset.coluna =
-      String(indice);
-
-    botaoFiltro.className =
-      'botao-filtro inline-flex items-center justify-center w-7 h-7 rounded-md transition-colors';
-
-    botaoFiltro.style.color =
-      'var(--muted)';
-
-    botaoFiltro.title =
-      `Filtrar ${coluna.name}`;
-
-    botaoFiltro.innerHTML = `
-      <svg
-        width="14"
-        height="14"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2.2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-      >
-        <path d="M4 5h16l-6.5 7.5V19l-3 1.5v-8z"/>
-      </svg>
-    `;
-
-    botaoFiltro.addEventListener(
-      'click',
-      (evento) => {
-        evento.stopPropagation();
-
-        abrirMenuFiltro(
-          indice,
-          botaoFiltro
+  columns.forEach(
+    (coluna, indice) => {
+      const th =
+        document.createElement(
+          'th'
         );
-      }
-    );
 
-    cabecalho.append(
-      nome,
-      botaoFiltro
-    );
+      th.className =
+        'text-left px-4 py-3 mono text-xs font-semibold uppercase tracking-wide';
 
-    th.appendChild(cabecalho);
-    headRow.appendChild(th);
-  });
+      th.style.borderTop =
+        `2px solid ${
+          COLORS[
+            indice %
+            COLORS.length
+          ]
+        }`;
+
+      const cabecalho =
+        document.createElement(
+          'div'
+        );
+
+      cabecalho.className =
+        'flex items-center justify-between gap-2';
+
+      const nome =
+        document.createElement(
+          'span'
+        );
+
+      nome.className =
+        'truncate';
+
+      nome.textContent =
+        coluna.name;
+
+      const botaoFiltro =
+        document.createElement(
+          'button'
+        );
+
+      botaoFiltro.type =
+        'button';
+
+      botaoFiltro.dataset.coluna =
+        String(indice);
+
+      botaoFiltro.className =
+        'botao-filtro inline-flex items-center justify-center w-7 h-7 rounded-md transition-colors';
+
+      botaoFiltro.style.color =
+        'var(--muted)';
+
+      botaoFiltro.title =
+        `Filtrar ${coluna.name}`;
+
+      botaoFiltro.innerHTML = `
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path
+            d="M4 5h16l-6.5 7.5V19l-3 1.5v-8z"
+          />
+        </svg>
+      `;
+
+      botaoFiltro.addEventListener(
+        'click',
+        (evento) => {
+          evento.stopPropagation();
+
+          abrirMenuFiltro(
+            indice,
+            botaoFiltro
+          );
+        }
+      );
+
+      cabecalho.append(
+        nome,
+        botaoFiltro
+      );
+
+      th.appendChild(
+        cabecalho
+      );
+
+      headRow.appendChild(th);
+    }
+  );
 
   const thAcao =
     document.createElement('th');
@@ -226,10 +330,15 @@ function renderTable() {
     'px-4 py-3 text-right whitespace-nowrap';
 
   const limparFiltros =
-    document.createElement('button');
+    document.createElement(
+      'button'
+    );
 
-  limparFiltros.type = 'button';
-  limparFiltros.id = 'limparFiltrosBtn';
+  limparFiltros.type =
+    'button';
+
+  limparFiltros.id =
+    'limparFiltrosBtn';
 
   limparFiltros.className =
     'btn btn-ghost text-xs px-2 py-1.5';
@@ -241,13 +350,19 @@ function renderTable() {
     'click',
     () => {
       filtrosSelecionados.clear();
+
       fecharMenuFiltro();
       aplicarFiltros();
     }
   );
 
-  thAcao.appendChild(limparFiltros);
-  headRow.appendChild(thAcao);
+  thAcao.appendChild(
+    limparFiltros
+  );
+
+  headRow.appendChild(
+    thAcao
+  );
 
   table.classList.toggle(
     'hidden',
@@ -267,11 +382,15 @@ function renderTable() {
   aplicarFiltros();
 }
 
-function valoresUnicosDaColuna(indice) {
+function valoresUnicosDaColuna(
+  indice
+) {
   const mapa = new Map();
 
   document
-    .querySelectorAll('#bodyRows tr')
+    .querySelectorAll(
+      '#bodyRows tr'
+    )
     .forEach((linha) => {
       const input =
         linha.querySelectorAll(
@@ -283,10 +402,15 @@ function valoresUnicosDaColuna(indice) {
         PLACEHOLDER;
 
       const chave =
-        normalizarFiltro(exibicao);
+        normalizarFiltro(
+          exibicao
+        );
 
       if (!mapa.has(chave)) {
-        mapa.set(chave, exibicao);
+        mapa.set(
+          chave,
+          exibicao
+        );
       }
     });
 
@@ -311,14 +435,15 @@ function fecharMenuFiltro() {
 
   menuFiltroAberto = null;
 }
-
 function criarOpcaoFiltro(
   texto,
   marcada,
   destaque = false
 ) {
   const label =
-    document.createElement('label');
+    document.createElement(
+      'label'
+    );
 
   label.className =
     'flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer';
@@ -340,27 +465,40 @@ function criarOpcaoFiltro(
   );
 
   const checkbox =
-    document.createElement('input');
+    document.createElement(
+      'input'
+    );
 
-  checkbox.type = 'checkbox';
-  checkbox.checked = marcada;
+  checkbox.type =
+    'checkbox';
+
+  checkbox.checked =
+    marcada;
 
   checkbox.style.accentColor =
     'var(--accent)';
 
   const span =
-    document.createElement('span');
+    document.createElement(
+      'span'
+    );
 
   span.className =
     'truncate flex-1';
 
   if (destaque) {
-    span.classList.add('font-semibold');
+    span.classList.add(
+      'font-semibold'
+    );
   }
 
-  span.textContent = texto;
+  span.textContent =
+    texto;
 
-  label.append(checkbox, span);
+  label.append(
+    checkbox,
+    span
+  );
 
   return {
     label,
@@ -375,10 +513,14 @@ function abrirMenuFiltro(
   fecharMenuFiltro();
 
   const valores =
-    valoresUnicosDaColuna(indice);
+    valoresUnicosDaColuna(
+      indice
+    );
 
   const selecionadosAtuais =
-    filtrosSelecionados.get(indice);
+    filtrosSelecionados.get(
+      indice
+    );
 
   const temporarios =
     new Set(
@@ -389,7 +531,9 @@ function abrirMenuFiltro(
     );
 
   const menu =
-    document.createElement('div');
+    document.createElement(
+      'div'
+    );
 
   const rect =
     botao.getBoundingClientRect();
@@ -427,7 +571,9 @@ function abrirMenuFiltro(
   );
 
   const titulo =
-    document.createElement('div');
+    document.createElement(
+      'div'
+    );
 
   titulo.className =
     'flex items-center justify-between gap-3 pb-2 mb-2';
@@ -436,7 +582,9 @@ function abrirMenuFiltro(
     '1px solid var(--line)';
 
   const nomeColuna =
-    document.createElement('span');
+    document.createElement(
+      'span'
+    );
 
   nomeColuna.className =
     'font-semibold text-sm truncate';
@@ -445,7 +593,9 @@ function abrirMenuFiltro(
     columns[indice].name;
 
   const quantidade =
-    document.createElement('span');
+    document.createElement(
+      'span'
+    );
 
   quantidade.className =
     'mono text-xs shrink-0';
@@ -464,15 +614,25 @@ function abrirMenuFiltro(
   menu.appendChild(titulo);
 
   const lista =
-    document.createElement('div');
+    document.createElement(
+      'div'
+    );
 
   lista.className =
     'overflow-y-auto overflow-x-hidden pr-1';
 
-  lista.style.height = '280px';
-  lista.style.maxHeight = '45vh';
-  lista.style.overflowY = 'auto';
-  lista.style.overflowX = 'hidden';
+  lista.style.height =
+    '280px';
+
+  lista.style.maxHeight =
+    '45vh';
+
+  lista.style.overflowY =
+    'auto';
+
+  lista.style.overflowX =
+    'hidden';
+
   lista.style.overscrollBehavior =
     'contain';
 
@@ -508,14 +668,19 @@ function abrirMenuFiltro(
   );
 
   const separador =
-    document.createElement('div');
+    document.createElement(
+      'div'
+    );
 
-  separador.className = 'my-1';
+  separador.className =
+    'my-1';
 
   separador.style.borderTop =
     '1px solid var(--line)';
 
-  lista.appendChild(separador);
+  lista.appendChild(
+    separador
+  );
 
   const opcoes =
     valores.map(
@@ -523,7 +688,9 @@ function abrirMenuFiltro(
         const opcao =
           criarOpcaoFiltro(
             exibicao,
-            temporarios.has(chave)
+            temporarios.has(
+              chave
+            )
           );
 
         lista.appendChild(
@@ -539,61 +706,82 @@ function abrirMenuFiltro(
     );
 
   function atualizarSelecionarTudo() {
-    selecionarTudo.checkbox.checked =
-      temporarios.size ===
-      valores.length;
-
-    selecionarTudo.checkbox.indeterminate =
-      temporarios.size > 0 &&
-      temporarios.size <
+    selecionarTudo
+      .checkbox
+      .checked =
+        temporarios.size ===
         valores.length;
+
+    selecionarTudo
+      .checkbox
+      .indeterminate =
+        temporarios.size > 0 &&
+        temporarios.size <
+          valores.length;
   }
 
-  selecionarTudo.checkbox.addEventListener(
-    'change',
-    () => {
-      temporarios.clear();
-
-      opcoes.forEach((opcao) => {
-        opcao.checkbox.checked =
-          selecionarTudo.checkbox.checked;
-
-        if (
-          selecionarTudo.checkbox.checked
-        ) {
-          temporarios.add(
-            opcao.chave
-          );
-        }
-      });
-
-      atualizarSelecionarTudo();
-    }
-  );
-
-  opcoes.forEach((opcao) => {
-    opcao.checkbox.addEventListener(
+  selecionarTudo
+    .checkbox
+    .addEventListener(
       'change',
       () => {
-        if (opcao.checkbox.checked) {
-          temporarios.add(
-            opcao.chave
-          );
-        } else {
-          temporarios.delete(
-            opcao.chave
-          );
-        }
+        temporarios.clear();
+
+        opcoes.forEach(
+          (opcao) => {
+            opcao.checkbox
+              .checked =
+                selecionarTudo
+                  .checkbox
+                  .checked;
+
+            if (
+              selecionarTudo
+                .checkbox
+                .checked
+            ) {
+              temporarios.add(
+                opcao.chave
+              );
+            }
+          }
+        );
 
         atualizarSelecionarTudo();
       }
     );
-  });
+
+  opcoes.forEach(
+    (opcao) => {
+      opcao.checkbox
+        .addEventListener(
+          'change',
+          () => {
+            if (
+              opcao.checkbox
+                .checked
+            ) {
+              temporarios.add(
+                opcao.chave
+              );
+            } else {
+              temporarios.delete(
+                opcao.chave
+              );
+            }
+
+            atualizarSelecionarTudo();
+          }
+        );
+    }
+  );
 
   menu.appendChild(lista);
 
   const acoes =
-    document.createElement('div');
+    document.createElement(
+      'div'
+    );
 
   acoes.className =
     'grid grid-cols-2 gap-2 mt-3 pt-3';
@@ -602,21 +790,24 @@ function abrirMenuFiltro(
     '1px solid var(--line)';
 
   const limpar =
-    document.createElement('button');
+    document.createElement(
+      'button'
+    );
 
-  limpar.type = 'button';
+  limpar.type =
+    'button';
 
   limpar.className =
     'btn btn-outline px-3 py-2 text-xs';
 
-  limpar.textContent = 'Limpar';
+  limpar.textContent =
+    'Limpar';
 
   limpar.addEventListener(
     'click',
     () => {
-      filtrosSelecionados.delete(
-        indice
-      );
+      filtrosSelecionados
+        .delete(indice);
 
       fecharMenuFiltro();
       aplicarFiltros();
@@ -624,14 +815,18 @@ function abrirMenuFiltro(
   );
 
   const aplicar =
-    document.createElement('button');
+    document.createElement(
+      'button'
+    );
 
-  aplicar.type = 'button';
+  aplicar.type =
+    'button';
 
   aplicar.className =
     'btn btn-accent px-3 py-2 text-xs';
 
-  aplicar.textContent = 'Aplicar';
+  aplicar.textContent =
+    'Aplicar';
 
   aplicar.addEventListener(
     'click',
@@ -640,13 +835,14 @@ function abrirMenuFiltro(
         temporarios.size ===
         valores.length
       ) {
-        filtrosSelecionados.delete(
-          indice
-        );
+        filtrosSelecionados
+          .delete(indice);
       } else {
         filtrosSelecionados.set(
           indice,
-          new Set(temporarios)
+          new Set(
+            temporarios
+          )
         );
       }
 
@@ -655,12 +851,19 @@ function abrirMenuFiltro(
     }
   );
 
-  acoes.append(limpar, aplicar);
+  acoes.append(
+    limpar,
+    aplicar
+  );
+
   menu.appendChild(acoes);
 
-  document.body.appendChild(menu);
+  document.body.appendChild(
+    menu
+  );
 
-  menuFiltroAberto = menu;
+  menuFiltroAberto =
+    menu;
 }
 
 function aplicarFiltros() {
@@ -673,42 +876,50 @@ function aplicarFiltros() {
 
   let visiveis = 0;
 
-  linhas.forEach((linha) => {
-    const campos =
-      Array.from(
-        linha.querySelectorAll(
-          '.cell-editavel'
-        )
-      );
-
-    const corresponde =
-      Array
-        .from(
-          filtrosSelecionados.entries()
-        )
-        .every(
-          ([indice, permitidos]) => {
-            const exibicao =
-              campos[indice]
-                ?.value
-                .trim() ||
-              PLACEHOLDER;
-
-            return permitidos.has(
-              normalizarFiltro(exibicao)
-            );
-          }
+  linhas.forEach(
+    (linha) => {
+      const campos =
+        Array.from(
+          linha.querySelectorAll(
+            '.cell-editavel'
+          )
         );
 
-    linha.classList.toggle(
-      'hidden',
-      !corresponde
-    );
+      const corresponde =
+        Array
+          .from(
+            filtrosSelecionados
+              .entries()
+          )
+          .every(
+            ([
+              indice,
+              permitidos,
+            ]) => {
+              const exibicao =
+                campos[indice]
+                  ?.value
+                  .trim() ||
+                PLACEHOLDER;
 
-    if (corresponde) {
-      visiveis++;
+              return permitidos.has(
+                normalizarFiltro(
+                  exibicao
+                )
+              );
+            }
+          );
+
+      linha.classList.toggle(
+        'hidden',
+        !corresponde
+      );
+
+      if (corresponde) {
+        visiveis++;
+      }
     }
-  });
+  );
 
   const botaoLimpar =
     document.getElementById(
@@ -716,7 +927,8 @@ function aplicarFiltros() {
     );
 
   const filtrosAtivos =
-    filtrosSelecionados.size > 0;
+    filtrosSelecionados.size >
+    0;
 
   if (botaoLimpar) {
     botaoLimpar.disabled =
@@ -732,48 +944,55 @@ function aplicarFiltros() {
     .querySelectorAll(
       '.botao-filtro'
     )
-    .forEach((botao) => {
-      const indice =
-        Number(
-          botao.dataset.coluna
-        );
+    .forEach(
+      (botao) => {
+        const indice =
+          Number(
+            botao.dataset.coluna
+          );
 
-      const ativo =
-        filtrosSelecionados.has(
-          indice
-        );
+        const ativo =
+          filtrosSelecionados.has(
+            indice
+          );
 
-      botao.style.background =
-        ativo
-          ? 'var(--accent)'
-          : 'transparent';
+        botao.style.background =
+          ativo
+            ? 'var(--accent)'
+            : 'transparent';
 
-      botao.style.color =
-        ativo
-          ? '#ffffff'
-          : 'var(--muted)';
+        botao.style.color =
+          ativo
+            ? '#ffffff'
+            : 'var(--muted)';
 
-      botao.style.boxShadow =
-        ativo
-          ? 'var(--shadow-sm)'
-          : 'none';
-    });
+        botao.style.boxShadow =
+          ativo
+            ? 'var(--shadow-sm)'
+            : 'none';
+      }
+    );
 }
 
-async function extrairTextoPDF(file) {
+async function extrairTextoPDF(
+  file
+) {
   const buffer =
     await file.arrayBuffer();
 
   const pdf =
-    await pdfjsLib.getDocument({
-      data: buffer,
-    }).promise;
+    await pdfjsLib
+      .getDocument({
+        data: buffer,
+      })
+      .promise;
 
   let texto = '';
 
   for (
     let paginaAtual = 1;
-    paginaAtual <= pdf.numPages;
+    paginaAtual <=
+      pdf.numPages;
     paginaAtual++
   ) {
     const pagina =
@@ -782,12 +1001,17 @@ async function extrairTextoPDF(file) {
       );
 
     const conteudo =
-      await pagina.getTextContent();
+      await pagina
+        .getTextContent();
 
     texto +=
       conteudo.items
-        .map((item) => item.str)
-        .join(' ') + ' ';
+        .map(
+          (item) =>
+            item.str
+        )
+        .join(' ') +
+      ' ';
   }
 
   return normalizarTextoDocumento(
@@ -802,9 +1026,11 @@ async function renderizarPaginaPDFComoImagem(
     await file.arrayBuffer();
 
   const pdf =
-    await pdfjsLib.getDocument({
-      data: buffer,
-    }).promise;
+    await pdfjsLib
+      .getDocument({
+        data: buffer,
+      })
+      .promise;
 
   const pagina =
     await pdf.getPage(1);
@@ -815,14 +1041,21 @@ async function renderizarPaginaPDFComoImagem(
     });
 
   const canvas =
-    document.createElement('canvas');
+    document.createElement(
+      'canvas'
+    );
 
-  canvas.width = viewport.width;
-  canvas.height = viewport.height;
+  canvas.width =
+    viewport.width;
+
+  canvas.height =
+    viewport.height;
 
   await pagina.render({
     canvasContext:
-      canvas.getContext('2d'),
+      canvas.getContext(
+        '2d'
+      ),
     viewport,
   }).promise;
 
@@ -839,20 +1072,22 @@ async function reconhecerTexto(
       imagemOuCanvas,
       'por',
       {
-        logger: (mensagem) => {
-          if (
-            mensagem.status ===
-            'recognizing text'
-          ) {
-            const progresso =
-              Math.round(
-                mensagem.progress * 100
-              );
+        logger:
+          (mensagem) => {
+            if (
+              mensagem.status ===
+              'recognizing text'
+            ) {
+              const progresso =
+                Math.round(
+                  mensagem.progress *
+                    100
+                );
 
-            statusEl.textContent =
-              `OCR ${progresso}% — ${nomeArquivo}`;
-          }
-        },
+              statusEl.textContent =
+                `OCR ${progresso}% — ${nomeArquivo}`;
+            }
+          },
       }
     );
 
@@ -864,8 +1099,9 @@ async function reconhecerTexto(
 
     linhas:
       (data.lines || [])
-        .map((linha) =>
-          linha.text.trim()
+        .map(
+          (linha) =>
+            linha.text.trim()
         )
         .filter(Boolean),
   };
@@ -886,32 +1122,41 @@ function extensao(nome) {
 
 function extrairCampos(texto) {
   texto =
-    normalizarTextoDocumento(texto);
+    normalizarTextoDocumento(
+      texto
+    );
 
   const linha = {};
   let algumaFalha = false;
 
-  columns.forEach((coluna) => {
-    const regras =
-      ANCORAS[coluna.name];
+  columns.forEach(
+    (coluna) => {
+      const regras =
+        ANCORAS[coluna.name];
 
-    const valor = regras
-      ? tentarAncoras(texto, regras)
-      : null;
+      const valor =
+        regras
+          ? tentarAncoras(
+              texto,
+              regras
+            )
+          : null;
 
-    linha[coluna.name] = valor;
+      linha[coluna.name] =
+        valor;
 
-    if (!valor) {
-      algumaFalha = true;
+      if (!valor) {
+        algumaFalha = true;
+      }
     }
-  });
+  );
 
   return {
     valores: linha,
-    precisaRevisao: algumaFalha,
+    precisaRevisao:
+      algumaFalha,
   };
 }
-
 const ROTULOS_OCR = {
   'Número da NF': [
     /N[º°.]\s*\d/i,
@@ -931,6 +1176,8 @@ const ROTULOS_OCR = {
 
   Valor: [
     /(?:VALOR\s*)?TOTAL\s*DA\s*NOTA/i,
+    /VALOR\s*TOTAL\s*DO\s*SERVI[ÇC]O/i,
+    /VALOR\s*TOTAL\s*COBRADO/i,
   ],
 };
 
@@ -938,7 +1185,10 @@ function extrairPeloFormato(
   nomeColuna,
   linhaDeTexto
 ) {
-  if (nomeColuna === 'Número da NF') {
+  if (
+    nomeColuna ===
+    'Número da NF'
+  ) {
     const resultado =
       linhaDeTexto.match(
         /(?:N[º°.]|NF-?e)\.?\s*[:|]?\s*0*(\d{3,12})/i
@@ -969,18 +1219,26 @@ function extrairPeloFormato(
       : null;
   }
 
-  if (nomeColuna === 'Valor') {
+  if (
+    nomeColuna ===
+    'Valor'
+  ) {
     const valores =
       linhaDeTexto.match(
         /\d{1,3}(?:\.\d{3})*,\d{2}/g
       );
 
     return valores?.length
-      ? valores[valores.length - 1]
+      ? valores[
+          valores.length - 1
+        ]
       : null;
   }
 
-  if (nomeColuna === 'Cliente') {
+  if (
+    nomeColuna ===
+    'Cliente'
+  ) {
     const resultado =
       linhaDeTexto.match(
         /^([A-ZÀ-Ü][A-ZÀ-Ü0-9&.,'\-\s]*?)(?=\s\d)/
@@ -994,7 +1252,9 @@ function extrairPeloFormato(
   return null;
 }
 
-function extrairCamposOCR(resultadoOCR) {
+function extrairCamposOCR(
+  resultadoOCR
+) {
   const texto =
     normalizarTextoDocumento(
       resultadoOCR.texto
@@ -1006,80 +1266,169 @@ function extrairCamposOCR(resultadoOCR) {
   const linhaResultado = {};
   let algumaFalha = false;
 
-  columns.forEach((coluna) => {
-    let valor = null;
+  columns.forEach(
+    (coluna) => {
+      let valor = null;
 
-    const rotulos =
-      ROTULOS_OCR[coluna.name];
+      const rotulos =
+        ROTULOS_OCR[
+          coluna.name
+        ];
 
-    if (
-      coluna.name === 'Cliente' &&
-      ANCORAS[coluna.name]
-    ) {
-      valor = tentarAncoras(
-        texto,
+      if (
+        coluna.name ===
+          'Cliente' &&
         ANCORAS[coluna.name]
-      );
-    }
-
-    if (!valor && rotulos) {
-      const indiceRotulo =
-        linhas.findIndex((linha) =>
-          rotulos.some((regex) =>
-            regex.test(linha)
-          )
+      ) {
+        valor = tentarAncoras(
+          texto,
+          ANCORAS[coluna.name]
         );
+      }
 
-      if (indiceRotulo !== -1) {
-        valor = extrairPeloFormato(
-          coluna.name,
-          linhas[indiceRotulo]
-        );
+      if (
+        !valor &&
+        rotulos
+      ) {
+        const indiceRotulo =
+          linhas.findIndex(
+            (linha) =>
+              rotulos.some(
+                (regex) =>
+                  regex.test(
+                    linha
+                  )
+              )
+          );
 
-        for (
-          let salto = 1;
-          !valor && salto <= 3;
-          salto++
+        if (
+          indiceRotulo !== -1
         ) {
-          const proximaLinha =
-            linhas[indiceRotulo + salto];
-
-          if (proximaLinha) {
-            valor = extrairPeloFormato(
+          valor =
+            extrairPeloFormato(
               coluna.name,
-              proximaLinha
+              linhas[
+                indiceRotulo
+              ]
             );
+
+          for (
+            let salto = 1;
+            !valor &&
+            salto <= 3;
+            salto++
+          ) {
+            const proximaLinha =
+              linhas[
+                indiceRotulo +
+                  salto
+              ];
+
+            if (proximaLinha) {
+              valor =
+                extrairPeloFormato(
+                  coluna.name,
+                  proximaLinha
+                );
+            }
           }
         }
       }
-    }
 
-    if (
-      !valor &&
-      ANCORAS[coluna.name]
-    ) {
-      valor = tentarAncoras(
-        texto,
+      if (
+        !valor &&
         ANCORAS[coluna.name]
-      );
-    }
+      ) {
+        valor = tentarAncoras(
+          texto,
+          ANCORAS[coluna.name]
+        );
+      }
 
-    linhaResultado[coluna.name] =
-      valor;
+      linhaResultado[
+        coluna.name
+      ] = valor;
 
-    if (!valor) {
-      algumaFalha = true;
+      if (!valor) {
+        algumaFalha = true;
+      }
     }
-  });
+  );
 
   return {
-    valores: linhaResultado,
-    precisaRevisao: algumaFalha,
+    valores:
+      linhaResultado,
+
+    precisaRevisao:
+      algumaFalha,
   };
 }
 
 const PLACEHOLDER =
   '— não encontrado';
+
+function atualizarEstadoTabela() {
+  const bodyRows =
+    document.getElementById(
+      'bodyRows'
+    );
+
+  const quantidade =
+    bodyRows.children.length;
+
+  document
+    .getElementById(
+      'rowCount'
+    )
+    .textContent =
+      String(quantidade);
+
+  document
+    .getElementById(
+      'emptyState'
+    )
+    .classList.toggle(
+      'hidden',
+      quantidade > 0
+    );
+
+  document
+    .getElementById(
+      'previewTable'
+    )
+    .classList.toggle(
+      'hidden',
+      quantidade === 0 ||
+        columns.length === 0
+    );
+}
+
+function excluirLinha(
+  linha,
+  nomeArquivo,
+  urlArquivo
+) {
+  const confirmar =
+    window.confirm(
+      `Excluir a linha da nota "${nomeArquivo}"?`
+    );
+
+  if (!confirmar) {
+    return;
+  }
+
+  linha.remove();
+
+  URL.revokeObjectURL(
+    urlArquivo
+  );
+
+  filtrosSelecionados.clear();
+
+  fecharMenuFiltro();
+  atualizarEstadoTabela();
+  aplicarFiltros();
+}
 
 function adicionarLinha(
   nomeArquivo,
@@ -1093,121 +1442,197 @@ function adicionarLinha(
     );
 
   const tr =
-    document.createElement('tr');
+    document.createElement(
+      'tr'
+    );
 
   atualizarDestaqueLinha(
     tr,
     resultado.precisaRevisao
   );
 
-  columns.forEach((coluna) => {
-    const td =
-      document.createElement('td');
+  columns.forEach(
+    (coluna) => {
+      const td =
+        document.createElement(
+          'td'
+        );
 
-    td.className =
-      'px-2 py-1.5';
+      td.className =
+        'px-2 py-1.5';
 
-    const input =
-      document.createElement('input');
+      const input =
+        document.createElement(
+          'input'
+        );
 
-    const valor =
-      resultado.valores[coluna.name];
+      const valor =
+        resultado.valores[
+          coluna.name
+        ];
 
-    input.type = 'text';
-    input.value = valor ?? '';
-    input.placeholder = PLACEHOLDER;
+      input.type =
+        'text';
 
-    input.className =
-      'cell-editavel w-full px-2 py-1.5 text-sm mono bg-transparent border-0';
+      input.value =
+        valor ?? '';
 
-    if (!valor) {
-      input.style.color =
-        'var(--warn-text)';
-    }
+      input.placeholder =
+        PLACEHOLDER;
 
-    input.addEventListener(
-      'input',
-      () => {
+      input.className =
+        'cell-editavel w-full px-2 py-1.5 text-sm mono bg-transparent border-0';
+
+      if (!valor) {
         input.style.color =
-          input.value.trim()
-            ? ''
-            : 'var(--warn-text)';
-
-        aplicarFiltros();
+          'var(--warn-text)';
       }
-    );
 
-    input.addEventListener(
-      'keydown',
-      (evento) => {
-        if (evento.key === 'Enter') {
-          evento.preventDefault();
-          input.blur();
+      input.addEventListener(
+        'input',
+        () => {
+          input.style.color =
+            input.value.trim()
+              ? ''
+              : 'var(--warn-text)';
+
+          aplicarFiltros();
         }
-      }
-    );
+      );
 
-    input.addEventListener(
-      'blur',
-      () => {
-        reavaliarLinha(tr);
-      }
-    );
+      input.addEventListener(
+        'keydown',
+        (evento) => {
+          if (
+            evento.key ===
+            'Enter'
+          ) {
+            evento.preventDefault();
+            input.blur();
+          }
+        }
+      );
 
-    td.appendChild(input);
-    tr.appendChild(td);
-  });
+      input.addEventListener(
+        'blur',
+        () => {
+          reavaliarLinha(tr);
+        }
+      );
+
+      td.appendChild(input);
+      tr.appendChild(td);
+    }
+  );
 
   const tdAcao =
-    document.createElement('td');
+    document.createElement(
+      'td'
+    );
 
   tdAcao.className =
     'px-4 py-3 text-right whitespace-nowrap';
 
-  const badgeOCR = viaOCR
-    ? `
-      <span
-        class="badge badge-ocr mr-2"
-        title="Lido por reconhecimento de imagem"
-      >
-        OCR
-      </span>
-    `
-    : '';
+  if (viaOCR) {
+    const badgeOCR =
+      document.createElement(
+        'span'
+      );
 
-  tdAcao.innerHTML = `
-    ${badgeOCR}
+    badgeOCR.className =
+      'badge badge-ocr mr-2';
 
-    <a
-      href="${urlArquivo}"
-      target="_blank"
-      rel="noopener noreferrer"
-      class="text-xs font-medium underline decoration-dotted underline-offset-2"
-      style="color:var(--accent)"
+    badgeOCR.title =
+      'Lido por reconhecimento de imagem — confira com mais atenção';
+
+    badgeOCR.textContent =
+      'OCR';
+
+    tdAcao.appendChild(
+      badgeOCR
+    );
+  }
+
+  const linkArquivo =
+    document.createElement(
+      'a'
+    );
+
+  linkArquivo.href =
+    urlArquivo;
+
+  linkArquivo.target =
+    '_blank';
+
+  linkArquivo.rel =
+    'noopener noreferrer';
+
+  linkArquivo.className =
+    'text-xs font-medium underline decoration-dotted underline-offset-2';
+
+  linkArquivo.style.color =
+    'var(--accent)';
+
+  linkArquivo.textContent =
+    'ver arquivo';
+
+  const botaoExcluir =
+    document.createElement(
+      'button'
+    );
+
+  botaoExcluir.type =
+    'button';
+
+  botaoExcluir.className =
+    'icon-btn ml-2 align-middle';
+
+  botaoExcluir.title =
+    'Excluir linha';
+
+  botaoExcluir.setAttribute(
+    'aria-label',
+    `Excluir linha da nota ${nomeArquivo}`
+  );
+
+  botaoExcluir.innerHTML = `
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
     >
-      ver arquivo
-    </a>
+      <path d="M3 6h18"/>
+      <path d="M8 6V4h8v2"/>
+      <path d="M19 6l-1 14H6L5 6"/>
+      <path d="M10 11v5M14 11v5"/>
+    </svg>
   `;
+
+  botaoExcluir.addEventListener(
+    'click',
+    () => {
+      excluirLinha(
+        tr,
+        nomeArquivo,
+        urlArquivo
+      );
+    }
+  );
+
+  tdAcao.append(
+    linkArquivo,
+    botaoExcluir
+  );
 
   tr.appendChild(tdAcao);
   bodyRows.appendChild(tr);
 
-  const quantidade =
-    bodyRows.children.length;
-
-  document
-    .getElementById('rowCount')
-    .textContent =
-      String(quantidade);
-
-  document
-    .getElementById('emptyState')
-    .classList.add('hidden');
-
-  document
-    .getElementById('previewTable')
-    .classList.remove('hidden');
-
+  atualizarEstadoTabela();
   aplicarFiltros();
 }
 
@@ -1230,7 +1655,8 @@ function reavaliarLinha(tr) {
   const aindaFaltaAlgo =
     Array.from(campos).some(
       (input) =>
-        input.value.trim() === ''
+        input.value.trim() ===
+        ''
     );
 
   atualizarDestaqueLinha(
@@ -1251,25 +1677,38 @@ async function processarArquivos(
     Array.from(fileList);
 
   const arquivos =
-    todos.filter((arquivo) =>
-      ['pdf', ...EXT_IMAGEM].includes(
-        extensao(arquivo.name)
-      )
+    todos.filter(
+      (arquivo) =>
+        [
+          'pdf',
+          ...EXT_IMAGEM,
+        ].includes(
+          extensao(
+            arquivo.name
+          )
+        )
     );
 
   const ignorados =
-    todos.length - arquivos.length;
+    todos.length -
+    arquivos.length;
 
   for (
     let indice = 0;
-    indice < arquivos.length;
+    indice <
+      arquivos.length;
     indice++
   ) {
-    const file = arquivos[indice];
-    const ext = extensao(file.name);
+    const file =
+      arquivos[indice];
+
+    const ext =
+      extensao(file.name);
 
     const url =
-      URL.createObjectURL(file);
+      URL.createObjectURL(
+        file
+      );
 
     status.textContent =
       `Processando ${indice + 1}/${arquivos.length}: ${file.name}...`;
@@ -1278,7 +1717,11 @@ async function processarArquivos(
     let viaOCR = false;
 
     try {
-      if (EXT_IMAGEM.includes(ext)) {
+      if (
+        EXT_IMAGEM.includes(
+          ext
+        )
+      ) {
         viaOCR = true;
 
         const resultadoOCR =
@@ -1294,9 +1737,13 @@ async function processarArquivos(
           );
       } else {
         const texto =
-          await extrairTextoPDF(file);
+          await extrairTextoPDF(
+            file
+          );
 
-        if (texto.length < 30) {
+        if (
+          texto.length < 30
+        ) {
           viaOCR = true;
 
           const canvas =
@@ -1317,7 +1764,9 @@ async function processarArquivos(
             );
         } else {
           resultadoExtracao =
-            extrairCampos(texto);
+            extrairCampos(
+              texto
+            );
 
           if (
             resultadoExtracao
@@ -1349,25 +1798,34 @@ async function processarArquivos(
 
                 if (
                   !resultadoExtracao
-                    .valores[nome] &&
-                  camposOCR.valores[nome]
+                    .valores[
+                      nome
+                    ] &&
+                  camposOCR.valores[
+                    nome
+                  ]
                 ) {
                   resultadoExtracao
-                    .valores[nome] =
-                    camposOCR.valores[nome];
+                    .valores[
+                      nome
+                    ] =
+                      camposOCR
+                        .valores[
+                          nome
+                        ];
                 }
               }
             );
 
             resultadoExtracao
               .precisaRevisao =
-              columns.some(
-                (coluna) =>
-                  !resultadoExtracao
-                    .valores[
-                      coluna.name
-                    ]
-              );
+                columns.some(
+                  (coluna) =>
+                    !resultadoExtracao
+                      .valores[
+                        coluna.name
+                      ]
+                );
           }
         }
       }
@@ -1388,7 +1846,8 @@ async function processarArquivos(
         file.name,
         {
           valores: {},
-          precisaRevisao: true,
+          precisaRevisao:
+            true,
         },
         url,
         viaOCR
@@ -1404,9 +1863,10 @@ async function processarArquivos(
         : ''
     );
 }
-
 document
-  .getElementById('addCol')
+  .getElementById(
+    'addCol'
+  )
   .addEventListener(
     'click',
     () => {
@@ -1430,39 +1890,52 @@ document
 
       columns.push({
         name,
-        type: typeSelect.value,
+        type:
+          typeSelect.value,
       });
 
       nameInput.value = '';
 
       filtrosSelecionados.clear();
+
       renderColumnList();
       renderTable();
     }
   );
 
 document
-  .getElementById('colName')
+  .getElementById(
+    'colName'
+  )
   .addEventListener(
     'keydown',
     (evento) => {
-      if (evento.key === 'Enter') {
+      if (
+        evento.key ===
+        'Enter'
+      ) {
         document
-          .getElementById('addCol')
+          .getElementById(
+            'addCol'
+          )
           .click();
       }
     }
   );
 
 document
-  .getElementById('generateBtn')
+  .getElementById(
+    'generateBtn'
+  )
   .addEventListener(
     'click',
     renderTable
   );
 
 document
-  .getElementById('fileInput')
+  .getElementById(
+    'fileInput'
+  )
   .addEventListener(
     'change',
     async (evento) => {
@@ -1470,12 +1943,15 @@ document
         evento.target.files
       );
 
-      evento.target.value = '';
+      evento.target.value =
+        '';
     }
   );
 
 document
-  .getElementById('fileInputEmpty')
+  .getElementById(
+    'fileInputEmpty'
+  )
   .addEventListener(
     'change',
     async (evento) => {
@@ -1483,55 +1959,63 @@ document
         evento.target.files
       );
 
-      evento.target.value = '';
+      evento.target.value =
+        '';
     }
   );
 
 const dropZone =
-  document.getElementById('dropZone');
+  document.getElementById(
+    'dropZone'
+  );
 
 [
   'dragenter',
   'dragover',
-].forEach((evento) => {
-  dropZone.addEventListener(
-    evento,
-    (e) => {
-      e.preventDefault();
-      e.stopPropagation();
+].forEach(
+  (nomeEvento) => {
+    dropZone.addEventListener(
+      nomeEvento,
+      (evento) => {
+        evento.preventDefault();
+        evento.stopPropagation();
 
-      dropZone.classList.add(
-        'is-active'
-      );
-    }
-  );
-});
+        dropZone.classList.add(
+          'is-active'
+        );
+      }
+    );
+  }
+);
 
 [
   'dragleave',
   'drop',
-].forEach((evento) => {
-  dropZone.addEventListener(
-    evento,
-    (e) => {
-      e.preventDefault();
-      e.stopPropagation();
+].forEach(
+  (nomeEvento) => {
+    dropZone.addEventListener(
+      nomeEvento,
+      (evento) => {
+        evento.preventDefault();
+        evento.stopPropagation();
 
-      dropZone.classList.remove(
-        'is-active'
-      );
-    }
-  );
-});
+        dropZone.classList.remove(
+          'is-active'
+        );
+      }
+    );
+  }
+);
 
 dropZone.addEventListener(
   'drop',
   (evento) => {
-    if (
-      evento.dataTransfer.files.length
-    ) {
+    const arquivos =
+      evento.dataTransfer.files;
+
+    if (arquivos.length) {
       processarArquivos(
-        evento.dataTransfer.files
+        arquivos
       );
     }
   }
@@ -1540,7 +2024,10 @@ dropZone.addEventListener(
 async function copiarTabela() {
   const cabecalho =
     columns
-      .map((coluna) => coluna.name)
+      .map(
+        (coluna) =>
+          coluna.name
+      )
       .join('\t');
 
   const linhasTexto =
@@ -1548,21 +2035,28 @@ async function copiarTabela() {
       document.querySelectorAll(
         '#bodyRows tr:not(.hidden)'
       )
-    ).map((linha) => {
-      const campos =
-        linha.querySelectorAll(
-          '.cell-editavel'
-        );
+    ).map(
+      (linha) => {
+        const campos =
+          linha.querySelectorAll(
+            '.cell-editavel'
+          );
 
-      return Array
-        .from(campos)
-        .map((input) => input.value)
-        .join('\t');
-    });
+        return Array
+          .from(campos)
+          .map(
+            (input) =>
+              input.value
+          )
+          .join('\t');
+      }
+    );
 
   const tsv =
-    [cabecalho, ...linhasTexto]
-      .join('\n');
+    [
+      cabecalho,
+      ...linhasTexto,
+    ].join('\n');
 
   try {
     await navigator
@@ -1575,17 +2069,25 @@ async function copiarTabela() {
       );
 
     textarea.value = tsv;
+
     textarea.style.position =
       'fixed';
 
-    textarea.style.opacity = '0';
+    textarea.style.opacity =
+      '0';
+
+    textarea.style.pointerEvents =
+      'none';
 
     document.body.appendChild(
       textarea
     );
 
     textarea.select();
-    document.execCommand('copy');
+
+    document.execCommand(
+      'copy'
+    );
 
     document.body.removeChild(
       textarea
@@ -1600,19 +2102,27 @@ async function copiarTabela() {
   const conteudoOriginal =
     botao.innerHTML;
 
-  botao.textContent = 'Copiado ✓';
+  botao.textContent =
+    'Copiado ✓';
+
   botao.disabled = true;
 
-  setTimeout(() => {
-    botao.innerHTML =
-      conteudoOriginal;
+  setTimeout(
+    () => {
+      botao.innerHTML =
+        conteudoOriginal;
 
-    botao.disabled = false;
-  }, 1500);
+      botao.disabled =
+        false;
+    },
+    1500
+  );
 }
 
 document
-  .getElementById('copiarBtn')
+  .getElementById(
+    'copiarBtn'
+  )
   .addEventListener(
     'click',
     copiarTabela
@@ -1620,7 +2130,16 @@ document
 
 document.addEventListener(
   'click',
-  fecharMenuFiltro
+  (evento) => {
+    if (
+      menuFiltroAberto &&
+      !menuFiltroAberto.contains(
+        evento.target
+      )
+    ) {
+      fecharMenuFiltro();
+    }
+  }
 );
 
 window.addEventListener(
@@ -1645,8 +2164,11 @@ window.addEventListener(
   true
 );
 
-pdfjsLib.GlobalWorkerOptions.workerSrc =
-  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+pdfjsLib
+  .GlobalWorkerOptions
+  .workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
 renderColumnList();
 renderTable();
+atualizarEstadoTabela();
